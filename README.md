@@ -10,7 +10,7 @@ AuthentiCheck holds a **GEN escrow** in **one Intelligent Contract**. A buyer op
 
 ## Live App
 
-Production URL is recorded after the Vercel deploy is verified.
+**URL:** [https://authenticheck-genlayer.vercel.app](https://authenticheck-genlayer.vercel.app)
 
 Free to use. You only pay GenLayer network gas when you sign a transaction. There is no platform fee.
 

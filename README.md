@@ -1,128 +1,131 @@
-# AuthentiCheck — Escrow xác thực hàng hiệu secondhand trên GenLayer
+# AuthentiCheck — Secondhand authenticity escrow on GenLayer
 
-AuthentiCheck giữ **GEN ký quỹ** trong **một Intelligent Contract**. Buyer tạo giao dịch (loại đồ, mô tả, serial, hạn nộp bằng chứng) và gửi GEN vào contract. Seller nộp ảnh/video cận cảnh cộng **tối thiểu 2 nguồn xác thực độc lập** (khác tên miền). GenLayer AI (`gl.vm.run_nondet`) trả về verdict **nhị phân** `AUTHENTIC` hoặc `FAKE`. Validator so **tuyệt đối** (`==`) cả nhãn lẫn nhánh giải ngân rời rạc (`PAY_SELLER` / `REFUND_BUYER` / `DISPUTE`) — không có dung sai phần trăm, không có phép tính trên số tiền.
+AuthentiCheck holds a **GEN escrow** in **one Intelligent Contract**. A buyer opens a transaction (category, description, serial, proof deadline) and sends GEN into the contract. The seller submits close-up photos or video plus **at least two independent authentication sources** on different hosts. GenLayer AI (`gl.vm.run_nondet`) returns a **binary** verdict: `AUTHENTIC` or `FAKE`. Validators compare the label and the discrete payout branch (`PAY_SELLER` / `REFUND_BUYER` / `DISPUTE`) with exact equality (`==`). There is no percentage tolerance and no arithmetic on the escrow amount.
 
-> AuthentiCheck chết nếu không có GenLayer: không có smart contract EVM nào đọc hiểu được ảnh/video sản phẩm phi cấu trúc để đối chiếu với nguồn xác thực độc lập, và không có dịch vụ giám định nào đủ rẻ/đủ nhanh cho hàng loạt giao dịch secondhand nhỏ lẻ.
+> AuthentiCheck dies without GenLayer: no EVM contract can read unstructured product photos and compare them with independent authentication pages, and no appraisal service is cheap or fast enough for small secondhand trades.
 
-**Mạng:** chỉ **Studionet**. Không chuyển sang testnet hay chain khác.
+**Network:** **Studionet** only.
 
 ---
 
-## Contract đã deploy
+## Live App
 
-- **Địa chỉ:** chưa có — deploy tay trên Studio, xác nhận `Result: SUCCESS`, rồi điền vào đây.
-- **Explorer:** điền sau khi có địa chỉ.
+Production URL is recorded after the Vercel deploy is verified.
+
+Free to use. You only pay GenLayer network gas when you sign a transaction. There is no platform fee.
+
+---
+
+## Deployed Contract
+
+- **Address:** `0xfA53082D872592e951E477E9046633Cc4a95c69D`
+- **Explorer:** [https://genlayer-explorer.vercel.app/address/0xfA53082D872592e951E477E9046633Cc4a95c69D](https://genlayer-explorer.vercel.app/address/0xfA53082D872592e951E477E9046633Cc4a95c69D)
 
 ```env
-VITE_CONTRACT_ADDRESS=
+VITE_CONTRACT_ADDRESS=0xfA53082D872592e951E477E9046633Cc4a95c69D
 ```
 
-Khi chưa có địa chỉ, frontend vẫn chạy: banner cảnh báo, form vẫn dùng được, nút ghi bị khóa, trang không trắng.
+If the address is missing, the frontend still runs: a warning banner is shown, the form works, write buttons stay locked, and the page does not go blank.
 
 ---
 
-## Kiến trúc: một contract giữ tiền
+## Architecture: one contract holds the funds
 
-[`contracts/authenticheck.py`](contracts/authenticheck.py) là contract duy nhất:
+[`contracts/authenticheck.py`](contracts/authenticheck.py) is the only contract:
 
-1. Buyer gọi `create_transaction` kèm `gl.message.value` (GEN escrow). Decorator là `@gl.public.write.payable` — Studionet chỉ điền `gl.message.value` khi có `.payable`. `@gl.public.write` trần để value = 0 (đã thấy trên các bản deploy Studionet thật, gồm ClaimVerdict).
-2. Seller gọi `submit_proof` với ≥ 1 proof URL và ≥ 2 reference URL **khác host**.
-3. Ai cũng có thể gọi `resolve_transaction`. `gl.vm.run_nondet` đọc `gl.nondet.web.render` + `gl.nondet.exec_prompt`.
-4. `AUTHENTIC` và confidence ≥ 60 → `emit_transfer` toàn bộ cho seller (`RESOLVED_AUTHENTIC`).
-5. `FAKE` và confidence ≥ 60 → hoàn toàn bộ cho buyer (`RESOLVED_FAKE`).
-6. confidence < 60, JSON hỏng, hoặc nhãn không phải `AUTHENTIC`/`FAKE` → `DISPUTED`. Seller nộp lại bằng chứng (kể cả sau hạn gốc), rồi resolve lại.
-7. Seller không nộp bằng chứng trước hạn → buyer gọi `claim_expired_refund` (không chạy AI).
-8. Mọi nhánh chuyển tiền thất bại → `PAYOUT_FAILED`. `retry_resolution` trả đúng người nhận, **không** chạy lại AI.
+1. The buyer calls `create_transaction` with `gl.message.value` (the GEN escrow). The decorator is `@gl.public.write.payable` so Studionet fills `gl.message.value`. A plain `@gl.public.write` leaves the value at 0.
+2. The seller calls `submit_proof` with at least 1 proof URL and at least 2 reference URLs on **different hosts**.
+3. Anyone can call `resolve_transaction`. `gl.vm.run_nondet` reads `gl.nondet.web.render` and `gl.nondet.exec_prompt`.
+4. `AUTHENTIC` and confidence ≥ 60 pays the full amount to the seller (`RESOLVED_AUTHENTIC`).
+5. `FAKE` and confidence ≥ 60 refunds the full amount to the buyer (`RESOLVED_FAKE`).
+6. Confidence below 60, broken JSON, or a label other than `AUTHENTIC` / `FAKE` becomes `DISPUTED`. The seller can submit clearer proof, including after the original deadline, then resolve again.
+7. If the seller never submits proof before the deadline, the buyer calls `claim_expired_refund`. That path does not run the AI.
+8. Any failed transfer becomes `PAYOUT_FAILED`. `retry_resolution` pays the correct party and does **not** re-run the AI.
 
-Header Studio (hash đang dùng trên các contract đã deploy trong workspace):
+Studio header:
 
 ```python
 # v0.2.17
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 ```
 
-### API đã verify
+### Verified APIs
 
-| Việc | API đúng | Không dùng |
+| Task | Correct API | Do not use |
 |---|---|---|
-| Người gọi | `gl.message.sender_address` | `gl.message.sender` |
-| Chuyển GEN | `gl.get_contract_at(addr).emit_transfer(value=u256(amount))` | `gl.transfer(...)` |
-| Nhận GEN kèm giao dịch | `@gl.public.write.payable` + `gl.message.value` | `@gl.public.write` trần (Studionet để value = 0) |
-| Thời gian | `_current_unix_timestamp()` bọc `gl.message.datetime` | `gl.block.timestamp` |
-| Đồng thuận | `gl.vm.run_nondet`, so `==` verdict và nhánh `PAY_SELLER` / `REFUND_BUYER` / `DISPUTE` | dung sai % trên tiền |
+| Caller | `gl.message.sender_address` | `gl.message.sender` |
+| Send GEN | `gl.get_contract_at(addr).emit_transfer(value=u256(amount))` | `gl.transfer(...)` |
+| Receive GEN with the call | `@gl.public.write.payable` + `gl.message.value` | plain `@gl.public.write` (Studionet leaves value at 0) |
+| Time | `_current_unix_timestamp()` wrapping `gl.message.datetime` | `gl.block.timestamp` |
+| Consensus | `gl.vm.run_nondet`, exact `==` on the verdict and on `PAY_SELLER` / `REFUND_BUYER` / `DISPUTE` | a percentage tolerance on the escrow |
 
-Hai validator cùng nói `AUTHENTIC` nhưng một bên confidence 91 (trả seller) và một bên 40 (tranh chấp) **không** được coi là đồng thuận. So sánh là chuỗi rời rạc, không phải khoảng sai số.
+Two validators that both say `AUTHENTIC`, while one confidence is 91 (pay the seller) and the other is 40 (dispute), do **not** agree. The comparison is a discrete string, not an error band.
 
 ---
 
-## Luồng resolve
+## Resolve flow
 
 ```
 PENDING_PROOF ──submit_proof──► SUBMITTED ──resolve_transaction──►
         │                              │
-        │ quá hạn, chưa nộp            ├─ confidence < 60 hoặc JSON hỏng ──► DISPUTED ── nộp lại ──► SUBMITTED
+        │ deadline passed, no proof    ├─ confidence < 60 or broken JSON ──► DISPUTED ── resubmit ──► SUBMITTED
         ▼                              ├─ AUTHENTIC + transfer OK ──► RESOLVED_AUTHENTIC
 EXPIRED_REFUNDED                       ├─ FAKE + transfer OK ──► RESOLVED_FAKE
-                                       └─ transfer lỗi ──► PAYOUT_FAILED ──retry_resolution──► đúng người nhận
+                                       └─ transfer failed ──► PAYOUT_FAILED ──retry_resolution──► correct recipient
 ```
 
-Web fetch lỗi thì giao dịch revert, trạng thái giữ `SUBMITTED`.
+A failed web fetch reverts the transaction and leaves the status at `SUBMITTED`.
 
 ---
 
-## Bảng đối chiếu xử lý tiền (không float)
+## Money handling (no floats)
 
-Mọi số tiền là **wei nguyên** (`1 GEN = 10^18`). Frontend chỉ dùng `parseGenToWei` / `formatWeiToGen` (cắt chuỗi + `BigInt`).
+Every amount is an **integer in wei** (`1 GEN = 10^18`). The frontend uses only `parseGenToWei` / `formatWeiToGen` (string parsing plus `BigInt`).
 
-| # | Chỗ xử lý | File | Cách xử lý | Đơn vị |
+| # | Place | File | How it is handled | Unit |
 |---|---|---|---|---|
-| 1 | Buyer gửi escrow lúc tạo giao dịch | `create_transaction` ← `gl.message.value` | `bigint(gl.message.value)` | wei |
-| 2 | Lưu số escrow | `Transaction.amount` | `bigint` | wei |
-| 3 | `AUTHENTIC` trả seller | `resolve_transaction` | `emit_transfer(value=u256(amount))` toàn bộ | wei |
-| 4 | `FAKE` hoàn buyer | `resolve_transaction` | cùng `emit_transfer`, toàn bộ, không chia % | wei |
-| 5 | Hết hạn, seller không nộp | `claim_expired_refund` | hoàn toàn bộ cho buyer | wei |
-| 6 | Thử lại sau `PAYOUT_FAILED` | `retry_resolution` | dùng lại `amount` đã lưu, không chạy AI | wei |
-| 7 | Đọc ra ngoài | `get_transaction` / `list_transactions` | `amount` là **chuỗi chữ số**, không phải số thực | wei string |
-| 8 | Ô nhập GEN | `frontend/src/money.js` `sanitizeGenInput` | chỉ chữ số và một dấu `.`, tối đa 18 số lẻ | chuỗi GEN |
-| 9 | GEN → wei trước khi ký | `parseGenToWei` | ghép phần nguyên + 18 chữ số lẻ → `BigInt` | wei |
-| 10 | wei → GEN để hiển thị | `formatWeiToGen` | chia/dư `10^18` bằng `BigInt` | chuỗi GEN |
-| 11 | `value` gửi qua MetaMask | `toValueBigInt` trong `genlayerClient.js` | `bigint` hoặc chuỗi hex → `BigInt`; **number JS thành 0n** | wei |
-| 12 | Field tiền đọc từ contract | `toWeiString` | chỉ nhận chuỗi chữ số hoặc `bigint`; `number` → `"0"` | wei string |
-| 13 | Chặn float | `scripts/check-no-float-money.js`, gắn `prebuild` | fail nếu `parseFloat` / `Math.round` / `Math.floor` / `Math.ceil` đứng gần `amount\|escrow\|payout\|balance\|wei\|gen` | — |
+| 1 | Buyer sends the escrow when creating a transaction | `create_transaction` ← `gl.message.value` | `bigint(gl.message.value)` | wei |
+| 2 | Stored escrow | `Transaction.amount` | `bigint` | wei |
+| 3 | `AUTHENTIC` pays the seller | `resolve_transaction` | `emit_transfer(value=u256(amount))` for the full amount | wei |
+| 4 | `FAKE` refunds the buyer | `resolve_transaction` | the same `emit_transfer`, full amount, no percentage split | wei |
+| 5 | Deadline passed with no proof | `claim_expired_refund` | full refund to the buyer | wei |
+| 6 | Retry after `PAYOUT_FAILED` | `retry_resolution` | reuse the stored `amount`; do not run the AI | wei |
+| 7 | Values read by the frontend | `get_transaction` / `list_transactions` | `amount` is a **digit string**, not a float | wei string |
+| 8 | GEN input | `frontend/src/money.js` `sanitizeGenInput` | digits and one `.`, at most 18 fraction digits | GEN string |
+| 9 | GEN → wei before signing | `parseGenToWei` | concatenate the integer part and an 18-digit fraction into a `BigInt` | wei |
+| 10 | wei → GEN for display | `formatWeiToGen` | divide and remainder by `10^18` with `BigInt` | GEN string |
+| 11 | `value` sent through MetaMask | `toValueBigInt` in `genlayerClient.js` | `bigint` or hex string → `BigInt`; a JS number becomes `0n` | wei |
+| 12 | Money fields read from the contract | `toWeiString` | digit strings or `bigint` only; a JS number becomes `"0"` | wei string |
+| 13 | Float gate | `scripts/check-no-float-money.js`, wired to `prebuild` | fail if `parseFloat` / `Math.round` / `Math.floor` / `Math.ceil` appear near `amount\|escrow\|payout\|balance\|wei\|gen` | — |
 
-Không có `parseFloat`, `Math.round`, `Math.floor`, `Math.ceil` trên đường đi của tiền.
+There is no `parseFloat`, `Math.round`, `Math.floor`, or `Math.ceil` on the money path.
 
 ---
 
-## Test
+## Tests
 
 ```bash
 pip install -r requirements.txt
 pytest tests/test_authenticheck.py -v
 ```
 
-**17 passed** (genlayer-test 0.29.2):
+**17 passed** (genlayer-test 0.29.2).
 
-```
-tests/test_authenticheck.py .................                               [100%]
-17 passed
-```
+Before every nondet transaction, tests call `_install_nondet_mocks` (`sim_installMocks` when present, plus `mock_web` / `mock_llm`).
 
-Trước mỗi giao dịch nondet, test gọi `_install_nondet_mocks` (`sim_installMocks` khi có, kèm `mock_web` / `mock_llm`).
+Required cases:
 
-Các case bắt buộc:
+1. Happy path `AUTHENTIC` pays the seller
+2. Happy path `FAKE` refunds the buyer
+3. Seller never submits before the deadline, so the buyer is refunded
+4. Late proof is rejected
+5. Confidence below 60 becomes `DISPUTED`, then a resubmit, then a second resolve
+6. Web fetch failure reverts and keeps `SUBMITTED`; broken JSON becomes `DISPUTED` and pays nobody
+7. Missing proof or references, same host, empty description, buyer equals seller, amount 0
+8. Double submit and double resolve are rejected
+9. `emit_transfer` throws on AUTHENTIC, FAKE, and the expired refund, then `retry_resolution` pays the correct party
 
-1. Happy path `AUTHENTIC` → trả seller
-2. Happy path `FAKE` → hoàn buyer
-3. Seller không nộp đúng hạn → buyer refund
-4. Nộp bằng chứng trễ hạn bị chặn
-5. Confidence < 60 → `DISPUTED` → nộp lại → resolve lại
-6. Web fetch lỗi (revert, giữ `SUBMITTED`) và JSON hỏng (`DISPUTED`, không trả tiền)
-7. Thiếu proof/reference, trùng host, mô tả rỗng, buyer = seller, amount = 0
-8. Double-submit / double-resolve
-9. `emit_transfer` ném lỗi ở cả 3 nhánh: AUTHENTIC, FAKE, hết hạn → `PAYOUT_FAILED` → `retry_resolution` trả đúng người
-
-Tiền trên frontend:
+Frontend money checks:
 
 ```bash
 node frontend/src/__tests__/unit_conversion.test.js
@@ -131,14 +134,14 @@ node scripts/check-no-float-money.js
 
 ---
 
-## Deploy contract trên Studionet
+## Deploy the contract on Studionet
 
-1. Mở [GenLayer Studio → Run & Debug](https://studio.genlayer.com/run-debug).
-2. Dán `contracts/authenticheck.py` (giữ 2 dòng header).
-3. Deploy. Mở giao dịch và xác nhận **`Result: SUCCESS`** (FINALIZED một mình chưa đủ).
-4. Điền địa chỉ vào `frontend/.env` (`VITE_CONTRACT_ADDRESS`) và biến môi trường Vercel.
+1. Open [GenLayer Studio → Run & Debug](https://studio.genlayer.com/run-debug).
+2. Paste `contracts/authenticheck.py` and keep the two header lines.
+3. Deploy and confirm **`Result: SUCCESS`**.
+4. Set `VITE_CONTRACT_ADDRESS` in `frontend/.env` and in the Vercel production environment.
 
-Chưa tự deploy trong repo này.
+Current deployment: `0xfA53082D872592e951E477E9046633Cc4a95c69D`.
 
 ---
 
@@ -150,12 +153,10 @@ npm install
 npm run dev
 ```
 
-Mở `http://localhost:3000`. Ở trên Studionet (`genlayer-js/chains` → `studionet`). Kết nối MetaMask và nạp GEN từ Studio → **Accounts**.
+Open `http://localhost:3000`. Stay on Studionet (`genlayer-js/chains` → `studionet`). Connect MetaMask and fund GEN from Studio → **Accounts**.
 
-`npm run build` chạy `prebuild` → `check-no-float-money`, rồi Vite.
+`npm run build` runs `prebuild` → `check-no-float-money`, then Vite.
 
-Kết quả bản này: unit conversion **pass**, `check-no-float-money: PASS (6 files scanned)`, `vite build` thành công. Vite cảnh báo bundle JS > 500 kB vì `genlayer-js` được đóng gói cùng app — build không fail.
+The buyer picks a category (chips suggest independent sources), a description, a serial, a GEN chip, and a deadline of 24 hours, 3 days, or 7 days, then shares the transaction with the seller. The seller pastes proof links plus at least two sources and clicks **Request AI verification**. The result shows the verdict, reason, confidence, and payout status. `DISPUTED` offers a resubmit form. `PAYOUT_FAILED` offers **Retry payout**.
 
-**Giới hạn đã biết:** nếu AI trả `DISPUTED` rồi seller biến mất, tiền vẫn nằm trong escrow. Không có hạn thứ hai để buyer rút ở trạng thái đó — đúng với rule “chỉ hoàn khi seller chưa từng nộp bằng chứng”. Nộp lần đầu sau hạn vẫn bị chặn; nộp lại khi đang `DISPUTED` vẫn được, để seller bổ sung ảnh rõ hơn.
-
-Luồng trên UI: buyer chọn category (chip gợi ý nguồn xác thực), mô tả, serial, chip GEN, hạn 24 giờ / 3 ngày / 7 ngày → chia sẻ cho seller → seller dán link bằng chứng + ≥ 2 nguồn → **Yêu cầu AI xác thực** (có trạng thái đang tải) → hiện verdict, lý do, confidence, trạng thái giải ngân. `DISPUTED` có form nộp lại. `PAYOUT_FAILED` có nút **Thử lại**.
+**Known limit:** if the AI returns `DISPUTED` and the seller disappears, the funds stay in escrow. There is no second deadline that refunds the buyer from that state. The first proof submission is still blocked after the deadline. A resubmit while the status is `DISPUTED` remains allowed so the seller can add clearer evidence.

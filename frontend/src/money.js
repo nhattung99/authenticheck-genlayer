@@ -87,7 +87,7 @@ export const formatUnix = (val) => {
     const secs = BigInt(String(val));
     const ms = Number(secs * 1000n);
     if (!Number.isFinite(ms)) return String(val);
-    return new Date(ms).toLocaleString('vi-VN');
+    return new Date(ms).toLocaleString('en-US');
   } catch {
     return String(val ?? '');
   }

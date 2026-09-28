@@ -37,47 +37,47 @@ import {
 const SESSION_KEY = 'authenticheck.contractAddress';
 const AMOUNT_CHIPS = ['0.5', '1', '2', '5', '10'];
 const DEADLINE_OPTIONS = [
-  { seconds: '86400', label: '24 giờ' },
-  { seconds: '259200', label: '3 ngày' },
-  { seconds: '604800', label: '7 ngày' }
+  { seconds: '86400', label: '24 hours' },
+  { seconds: '259200', label: '3 days' },
+  { seconds: '604800', label: '7 days' }
 ];
 
 const CATEGORIES = [
   {
     id: 'Sneakers',
-    label: 'Giày sneaker',
+    label: 'Sneakers',
     sources: ['StockX Verify', 'GOAT Authentication']
   },
   {
     id: 'Watch',
-    label: 'Đồng hồ',
-    sources: ['Chrono24', 'Watchfinder / serial hãng']
+    label: 'Watch',
+    sources: ['Chrono24', 'Watchfinder serial check']
   },
   {
     id: 'Trading Card',
-    label: 'Thẻ bài',
+    label: 'Trading card',
     sources: ['PSA Cert Lookup', 'BGS Cert Lookup']
   },
   {
     id: 'Handbag',
-    label: 'Túi xách',
+    label: 'Handbag',
     sources: ['Entrupy', 'The RealReal Authentication']
   },
   {
     id: 'Other',
-    label: 'Khác',
-    sources: ['Trang tra cứu serial hãng', 'Trang xác thực công khai']
+    label: 'Other',
+    sources: ['Official serial lookup', 'Public authentication page']
   }
 ];
 
 const STATUS_META = {
-  PENDING_PROOF: { label: 'Chờ bằng chứng', tone: 'open' },
-  SUBMITTED: { label: 'Đã nộp bằng chứng', tone: 'pending' },
-  DISPUTED: { label: 'Cần bằng chứng rõ hơn', tone: 'warn' },
-  RESOLVED_AUTHENTIC: { label: 'Hàng thật — đã trả seller', tone: 'ok' },
-  RESOLVED_FAKE: { label: 'Hàng giả — đã hoàn buyer', tone: 'bad' },
-  PAYOUT_FAILED: { label: 'Giải ngân lỗi', tone: 'bad' },
-  EXPIRED_REFUNDED: { label: 'Hết hạn — đã hoàn buyer', tone: 'muted' }
+  PENDING_PROOF: { label: 'Awaiting proof', tone: 'open' },
+  SUBMITTED: { label: 'Proof submitted', tone: 'pending' },
+  DISPUTED: { label: 'Needs clearer proof', tone: 'warn' },
+  RESOLVED_AUTHENTIC: { label: 'Authentic — paid seller', tone: 'ok' },
+  RESOLVED_FAKE: { label: 'Fake — refunded buyer', tone: 'bad' },
+  PAYOUT_FAILED: { label: 'Payout failed', tone: 'bad' },
+  EXPIRED_REFUNDED: { label: 'Expired — refunded buyer', tone: 'muted' }
 };
 
 const canonAddr = (a) => String(a || '').trim().toLowerCase().replace(/^0x/, '');
@@ -187,7 +187,7 @@ export default function App() {
 
   const connectWallet = async () => {
     if (!window.ethereum) {
-      setToast({ kind: 'error', text: 'Cần cài MetaMask để ký giao dịch trên Studionet.' });
+      setToast({ kind: 'error', text: 'Install MetaMask to sign transactions on Studionet.' });
       return '';
     }
     await switchToGenlayerStudionet();
@@ -235,7 +235,7 @@ export default function App() {
       return loaded;
     } catch (err) {
       console.warn('loadTxs', err);
-      setToast({ kind: 'error', text: 'Không đọc được danh sách giao dịch từ contract.' });
+      setToast({ kind: 'error', text: 'Could not read transactions from the contract.' });
       return [];
     } finally {
       setLoading(false);
@@ -257,29 +257,29 @@ export default function App() {
       const text = await navigator.clipboard.readText();
       setter(String(text || '').trim());
     } catch {
-      setToast({ kind: 'error', text: 'Không đọc được clipboard. Dán thủ công (Ctrl+V).' });
+      setToast({ kind: 'error', text: 'Could not read the clipboard. Paste manually (Ctrl+V).' });
     }
   };
 
   const applyAddress = () => {
     const next = addressDraft.trim();
     if (!isContractConfigured(next)) {
-      setToast({ kind: 'error', text: 'Địa chỉ contract phải là 0x và 40 ký tự hex.' });
+      setToast({ kind: 'error', text: 'Contract address must be 0x followed by 40 hex characters.' });
       return;
     }
     try { sessionStorage.setItem(SESSION_KEY, next); } catch { /* ignore */ }
     setContractAddress(next);
-    setToast({ kind: 'ok', text: 'Đã gắn địa chỉ contract cho phiên này.' });
+    setToast({ kind: 'ok', text: 'Contract address saved for this session.' });
   };
 
   const runWrite = async (title, functionName, args, valueWei = 0n) => {
     if (!configured) {
-      throw new Error('Chưa có địa chỉ contract. Deploy trên Studio rồi dán địa chỉ vào banner.');
+      throw new Error('No contract address yet. Deploy on Studio, then paste the address in the banner.');
     }
     let from = account;
     if (!from) from = await connectWallet();
     const before = txs.slice();
-    setToast({ kind: 'pending', text: `${title}: đang chờ chữ ký MetaMask…` });
+    setToast({ kind: 'pending', text: `${title}: waiting for the MetaMask signature…` });
     const hash = await sendContractTransaction({
       from,
       to: contractAddress,
@@ -288,11 +288,11 @@ export default function App() {
       value: valueWei
     });
     const waiting = functionName === 'resolve_transaction'
-      ? 'AI đang đọc ảnh/video và đối chiếu nguồn xác thực độc lập…'
-      : `${title}: đang chờ GenLayer ACCEPTED…`;
+      ? 'The AI is reading the proof and comparing independent authentication sources…'
+      : `${title}: waiting for GenLayer ACCEPTED…`;
     setToast({ kind: 'pending', text: waiting });
     await waitForFinalizedTx(hash);
-    setToast({ kind: 'pending', text: `${title}: đang xác nhận trạng thái đã chấp nhận…` });
+    setToast({ kind: 'pending', text: `${title}: confirming the accepted contract state…` });
     let loaded = [];
     let accepted = false;
     for (let attempt = 0; attempt < 16; attempt += 1) {
@@ -302,9 +302,9 @@ export default function App() {
       await new Promise((r) => setTimeout(r, 2000));
     }
     if (!accepted) {
-      throw new Error('Giao dịch đã được đào nhưng GenLayer chưa ACCEPT đúng thay đổi trạng thái. Mở Studio và kiểm tra Result.');
+      throw new Error('The transaction was mined, but GenLayer did not ACCEPT the expected state change. Open Studio and check the result.');
     }
-    setToast({ kind: 'ok', text: `${title} thành công (ACCEPTED).` });
+    setToast({ kind: 'ok', text: `${title} succeeded (ACCEPTED).` });
     return hash;
   };
 
@@ -314,25 +314,25 @@ export default function App() {
     const sellerAddr = seller.trim();
     const wei = parseGenToWei(amountGen);
     if (!/^0x[0-9a-fA-F]{40}$/.test(sellerAddr)) {
-      setToast({ kind: 'error', text: 'Địa chỉ seller phải là 0x và 40 ký tự hex.' });
+      setToast({ kind: 'error', text: 'Seller address must be 0x followed by 40 hex characters.' });
       return;
     }
     if (account && sameAddress(account, sellerAddr)) {
-      setToast({ kind: 'error', text: 'Buyer và seller không được trùng địa chỉ.' });
+      setToast({ kind: 'error', text: 'Buyer and seller cannot be the same address.' });
       return;
     }
     if (!desc) {
-      setToast({ kind: 'error', text: 'Mô tả sản phẩm không được để trống.' });
+      setToast({ kind: 'error', text: 'Item description cannot be empty.' });
       return;
     }
     if (wei <= 0n) {
-      setToast({ kind: 'error', text: 'Số GEN escrow phải lớn hơn 0.' });
+      setToast({ kind: 'error', text: 'Escrow must be greater than 0 GEN.' });
       return;
     }
     try {
       const deadline = deadlineFromOffset(deadlineSeconds);
       await runWrite(
-        'Tạo giao dịch',
+        'Create transaction',
         'create_transaction',
         [sellerAddr, category, desc, serial.trim(), deadline],
         wei
@@ -351,15 +351,15 @@ export default function App() {
     const proofs = cleanUrls(proofUrls);
     const refs = cleanUrls(refUrls);
     if (proofs.length < 1 || proofs.some((u) => !isHttp(u))) {
-      setToast({ kind: 'error', text: 'Cần ít nhất 1 link ảnh/video (http/https).' });
+      setToast({ kind: 'error', text: 'At least 1 photo or video link is required (http/https).' });
       return;
     }
     if (refs.length < 2 || refs.some((u) => !isHttp(u))) {
-      setToast({ kind: 'error', text: 'Cần ít nhất 2 link nguồn xác thực độc lập (http/https).' });
+      setToast({ kind: 'error', text: 'At least 2 independent authentication links are required (http/https).' });
       return;
     }
     try {
-      await runWrite('Nộp bằng chứng', 'submit_proof', [row.tx_id, proofs, refs]);
+      await runWrite('Submit proof', 'submit_proof', [row.tx_id, proofs, refs]);
       setProofUrls(['']);
       setRefUrls(['', '']);
     } catch (err) {
@@ -369,7 +369,7 @@ export default function App() {
 
   const onResolve = async (row) => {
     try {
-      await runWrite('Yêu cầu AI xác thực', 'resolve_transaction', [row.tx_id]);
+      await runWrite('Request AI verification', 'resolve_transaction', [row.tx_id]);
     } catch (err) {
       setToast({ kind: 'error', text: formatWriteError(err) });
     }
@@ -377,7 +377,7 @@ export default function App() {
 
   const onRefund = async (row) => {
     try {
-      await runWrite('Hoàn tiền hết hạn', 'claim_expired_refund', [row.tx_id]);
+      await runWrite('Claim expired refund', 'claim_expired_refund', [row.tx_id]);
     } catch (err) {
       setToast({ kind: 'error', text: formatWriteError(err) });
     }
@@ -385,17 +385,17 @@ export default function App() {
 
   const onRetry = async (row) => {
     try {
-      await runWrite('Thử giải ngân lại', 'retry_resolution', [row.tx_id]);
+      await runWrite('Retry payout', 'retry_resolution', [row.tx_id]);
     } catch (err) {
       setToast({ kind: 'error', text: formatWriteError(err) });
     }
   };
 
   const shareText = async (row) => {
-    const text = `AuthentiCheck #${row.tx_id} — ${categoryLabel(row.item_category)} — ${formatWeiToGen(row.amount)} GEN. Seller nộp bằng chứng trước ${formatUnix(row.proof_deadline)}.`;
+    const text = `AuthentiCheck #${row.tx_id} — ${categoryLabel(row.item_category)} — ${formatWeiToGen(row.amount)} GEN. Seller must submit proof before ${formatUnix(row.proof_deadline)}.`;
     try {
       await navigator.clipboard.writeText(text);
-      setToast({ kind: 'ok', text: `Đã chép lời mời cho seller (giao dịch #${row.tx_id}).` });
+      setToast({ kind: 'ok', text: `Copied the seller invite for transaction #${row.tx_id}.` });
     } catch {
       setToast({ kind: 'error', text: text });
     }
@@ -422,13 +422,13 @@ export default function App() {
           <div className="brand-mark" aria-hidden="true"><Shield size={22} /></div>
           <div>
             <h1>AuthentiCheck</h1>
-            <p>Escrow xác thực hàng hiệu secondhand trên GenLayer</p>
+            <p>Secondhand authenticity escrow on GenLayer</p>
           </div>
         </div>
         <div className="nav-actions">
           <span className="chip chip-net">Studionet · {String(studionet.id || 61999)}</span>
           <button className="btn btn-ghost" onClick={connectWallet}>
-            <Wallet size={16} /> {account ? shortAddr(account) : 'Kết nối ví'}
+            <Wallet size={16} /> {account ? shortAddr(account) : 'Connect wallet'}
           </button>
         </div>
       </header>
@@ -436,7 +436,7 @@ export default function App() {
       <div className="banner banner-free">
         <BadgeCheck size={18} />
         <div className="banner-body">
-          <strong>Miễn phí sử dụng — chỉ tốn phí gas mạng GenLayer khi ký giao dịch. Không có phí nền tảng nào khác.</strong>
+          <strong>Free to use. You only pay GenLayer network gas when you sign a transaction. There is no platform fee.</strong>
         </div>
       </div>
 
@@ -444,16 +444,16 @@ export default function App() {
         <div className="banner banner-warn">
           <AlertTriangle size={18} />
           <div className="banner-body">
-            <strong>Chưa có địa chỉ contract.</strong>
-            <p>App vẫn chạy được. Deploy tay trên GenLayer Studio, xác nhận Result: SUCCESS, rồi dán địa chỉ vào đây hoặc set VITE_CONTRACT_ADDRESS. Nút ghi sẽ khóa cho tới lúc đó — trang không bị trắng.</p>
+            <strong>No contract address yet.</strong>
+            <p>The app still runs. Deploy on GenLayer Studio, confirm Result: SUCCESS, then paste the address here or set VITE_CONTRACT_ADDRESS. Write buttons stay locked until then, and the page does not go blank.</p>
             <div className="row">
               <input
-                aria-label="Địa chỉ contract"
-                placeholder="0x… địa chỉ contract trên Studionet"
+                aria-label="Contract address"
+                placeholder="0x… Studionet contract address"
                 value={addressDraft}
                 onChange={(e) => setAddressDraft(e.target.value.trim())}
               />
-              <button className="btn btn-primary" type="button" onClick={applyAddress}>Gắn địa chỉ</button>
+              <button className="btn btn-primary" type="button" onClick={applyAddress}>Save address</button>
             </div>
           </div>
         </div>
@@ -463,9 +463,9 @@ export default function App() {
         <div className="banner">
           <Shield size={18} />
           <div className="banner-body">
-            <span>Contract Studionet: {shortAddr(contractAddress)}</span>
-            <a href={`https://explorer-studio.genlayer.com/address/${contractAddress}`} target="_blank" rel="noreferrer">
-              Mở explorer <ExternalLink size={14} />
+            <span>Studionet contract: {shortAddr(contractAddress)}</span>
+            <a href={`https://genlayer-explorer.vercel.app/address/${contractAddress}`} target="_blank" rel="noreferrer">
+              Open explorer <ExternalLink size={14} />
             </a>
           </div>
         </div>
@@ -477,43 +477,43 @@ export default function App() {
           {toast.kind === 'ok' && <BadgeCheck size={16} />}
           {toast.kind === 'error' && <XCircle size={16} />}
           <span>{toast.text}</span>
-          <button className="toast-x" type="button" onClick={() => setToast(null)} aria-label="Đóng">×</button>
+          <button className="toast-x" type="button" onClick={() => setToast(null)} aria-label="Dismiss">×</button>
         </div>
       )}
 
       <div className="tabs">
-        <button type="button" className={tab === 'create' ? 'on' : ''} onClick={() => setTab('create')}>Tạo giao dịch</button>
+        <button type="button" className={tab === 'create' ? 'on' : ''} onClick={() => setTab('create')}>Create transaction</button>
         <button type="button" className={tab === 'list' ? 'on' : ''} onClick={() => setTab('list')}>
-          Danh sách {loading ? '' : `(${txs.length})`}
+          Transactions {loading ? '' : `(${txs.length})`}
         </button>
         <button type="button" className="btn btn-ghost" onClick={loadTxs} disabled={!configured || loading}>
-          <RefreshCw size={14} className={loading ? 'spin' : ''} /> Làm mới
+          <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
         </button>
       </div>
 
       <div className={tab === 'create' ? 'layout' : 'layout layout-single'}>
         {tab === 'create' && (
           <form className="panel" onSubmit={onCreate}>
-            <h2>Buyer ký quỹ</h2>
-            <p className="muted">Chọn loại đồ, mô tả ngắn, số GEN và hạn seller nộp bằng chứng. Tiền nằm trong contract cho tới khi AI ra AUTHENTIC hoặc FAKE.</p>
+            <h2>Buyer escrow</h2>
+            <p className="muted">Pick a category, a short description, the GEN amount, and the seller’s proof deadline. The funds stay in the contract until the AI returns AUTHENTIC or FAKE.</p>
 
             <label className="field">
-              Địa chỉ seller
+              Seller address
               <div className="row">
                 <input
-                  aria-label="Địa chỉ seller"
+                  aria-label="Seller address"
                   placeholder="0x…"
                   value={seller}
                   onChange={(e) => setSeller(e.target.value.trim())}
                 />
                 <button className="btn btn-ghost" type="button" onClick={() => pasteInto(setSeller)}>
-                  <Clipboard size={14} /> Dán
+                  <Clipboard size={14} /> Paste
                 </button>
               </div>
             </label>
 
             <div className="stack">
-              <span className="tiny">Loại đồ</span>
+              <span className="tiny">Item category</span>
               <div className="chips">
                 {CATEGORIES.map((item) => (
                   <button
@@ -526,33 +526,33 @@ export default function App() {
                   </button>
                 ))}
               </div>
-              <p className="hint">Nguồn xác thực thường dùng cho {activeCategory.label}: {activeCategory.sources.join(' · ')}. Seller sẽ nộp link thật của các trang này, không phải bài tự viết.</p>
+              <p className="hint">Common independent sources for {activeCategory.label}: {activeCategory.sources.join(' · ')}. The seller submits real links from those sites, not a note they wrote themselves.</p>
             </div>
 
             <label className="field">
-              Mô tả sản phẩm
+              Item description
               <textarea
-                aria-label="Mô tả sản phẩm"
+                aria-label="Item description"
                 maxLength={2000}
-                placeholder="Ví dụ: Nike Dunk Low Panda, size 42, hộp năm 2021"
+                placeholder="Example: Nike Dunk Low Panda, size 42, 2021 box"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
             </label>
 
             <label className="field">
-              Mã serial / số hiệu (nếu có)
+              Serial or identifier (optional)
               <input
                 aria-label="Serial"
                 maxLength={200}
-                placeholder="Có thể để trống"
+                placeholder="Leave blank if the item has none"
                 value={serial}
                 onChange={(e) => setSerial(e.target.value)}
               />
             </label>
 
             <div className="stack">
-              <span className="tiny">Số GEN ký quỹ</span>
+              <span className="tiny">Escrow amount (GEN)</span>
               <div className="chips">
                 {AMOUNT_CHIPS.map((chip) => (
                   <button
@@ -566,7 +566,7 @@ export default function App() {
                 ))}
               </div>
               <input
-                aria-label="Số GEN"
+                aria-label="GEN amount"
                 inputMode="decimal"
                 value={amountGen}
                 onChange={(e) => setAmountGen(sanitizeGenInput(e.target.value))}
@@ -574,9 +574,9 @@ export default function App() {
             </div>
 
             <label className="field">
-              Hạn nộp bằng chứng
+              Proof deadline
               <select
-                aria-label="Hạn nộp bằng chứng"
+                aria-label="Proof deadline"
                 value={deadlineSeconds}
                 onChange={(e) => setDeadlineSeconds(e.target.value)}
               >
@@ -587,9 +587,9 @@ export default function App() {
             </label>
 
             <button className="btn btn-primary" type="submit" disabled={!configured || toast?.kind === 'pending'}>
-              <Plus size={16} /> Tạo giao dịch và ký quỹ
+              <Plus size={16} /> Create transaction and escrow
             </button>
-            {!configured && <p className="tiny">Nút ghi đang khóa vì chưa có địa chỉ contract.</p>}
+            {!configured && <p className="tiny">Write actions stay locked until a contract address is set.</p>}
           </form>
         )}
 
@@ -597,7 +597,7 @@ export default function App() {
           {txs.length === 0 && (
             <div className="empty">
               <Shield size={28} />
-              <p>{configured ? 'Chưa có giao dịch nào trên contract này.' : 'Danh sách trống cho tới khi có địa chỉ contract.'}</p>
+              <p>{configured ? 'No transactions on this contract yet.' : 'The list stays empty until a contract address is set.'}</p>
             </div>
           )}
 
@@ -663,7 +663,7 @@ function UrlList({ label, urls, setUrls, pasteInto, updateList, addLabel }) {
             onChange={(e) => updateList(urls, index, e.target.value.trim(), setUrls)}
           />
           <button className="btn btn-ghost" type="button" onClick={() => pasteInto((text) => updateList(urls, index, text, setUrls))}>
-            <Clipboard size={14} /> Dán
+            <Clipboard size={14} /> Paste
           </button>
         </div>
       ))}
@@ -690,31 +690,31 @@ function TxDetail({
     <article className="panel detail">
       <div className="sheet-h">
         <div>
-          <h2>Giao dịch #{row.tx_id}</h2>
+          <h2>Transaction #{row.tx_id}</h2>
           <p className="muted">{categoryLabel(row.item_category)} · {formatWeiToGen(row.amount)} GEN</p>
         </div>
         <span className={`pill pill-${meta.tone}`}>{meta.label}</span>
       </div>
 
       <p className="desc">{row.item_description}</p>
-      <p className="tiny">Serial: {row.serial_or_identifier || 'không có'} · Buyer {shortAddr(row.buyer)} · Seller {shortAddr(row.seller)}</p>
-      <p className="tiny">Hạn nộp bằng chứng: {formatUnix(row.proof_deadline)}</p>
+      <p className="tiny">Serial: {row.serial_or_identifier || 'none'} · Buyer {shortAddr(row.buyer)} · Seller {shortAddr(row.seller)}</p>
+      <p className="tiny">Proof deadline: {formatUnix(row.proof_deadline)}</p>
 
       <div className="row">
         <button className="btn btn-ghost" type="button" onClick={() => shareText(row)}>
-          <Clipboard size={14} /> Chia sẻ cho seller
+          <Clipboard size={14} /> Share with seller
         </button>
       </div>
 
       {row.proof_urls.length > 0 && (
         <div className="links">
-          <span className="tiny">Ảnh / video seller nộp</span>
+          <span className="tiny">Seller photos and video</span>
           {row.proof_urls.map((url) => <a key={url} href={url} target="_blank" rel="noreferrer">{url}</a>)}
         </div>
       )}
       {row.reference_urls.length > 0 && (
         <div className="links">
-          <span className="tiny">Nguồn xác thực độc lập</span>
+          <span className="tiny">Independent authentication sources</span>
           {row.reference_urls.map((url) => <a key={url} href={url} target="_blank" rel="noreferrer">{url}</a>)}
         </div>
       )}
@@ -723,66 +723,66 @@ function TxDetail({
         <div className={`verdict ${verdictClass}`}>
           {row.verdict === 'FAKE' ? <XCircle size={18} /> : <Sparkles size={18} />}
           <div>
-            <strong>{row.verdict || 'Chưa có nhãn'} · độ tin cậy {row.confidence}/100</strong>
+            <strong>{row.verdict || 'No label yet'} · confidence {row.confidence}/100</strong>
             <p>{row.verdict_reason}</p>
-            <p className="tiny">{row.settled ? 'Đã giải ngân.' : 'Chưa giải ngân.'}</p>
+            <p className="tiny">{row.settled ? 'Paid out.' : 'Not paid out yet.'}</p>
           </div>
         </div>
       )}
 
       {canSubmit && (
         <div className="stack">
-          <p className="hint">Gợi ý nguồn cho {categoryLabel(row.item_category)}: {sources.join(' · ')}. Cần tối thiểu 2 link khác tên miền.</p>
+          <p className="hint">Suggested sources for {categoryLabel(row.item_category)}: {sources.join(' · ')}. Submit at least 2 links on different domains.</p>
           <UrlList
-            label="Link ảnh / video cận cảnh"
+            label="Close-up photo or video links"
             urls={proofUrls}
             setUrls={setProofUrls}
             pasteInto={pasteInto}
             updateList={updateList}
-            addLabel="Thêm link bằng chứng"
+            addLabel="Add proof link"
           />
           <UrlList
-            label="Nguồn xác thực độc lập"
+            label="Independent authentication sources"
             urls={refUrls}
             setUrls={setRefUrls}
             pasteInto={pasteInto}
             updateList={updateList}
-            addLabel="Thêm nguồn"
+            addLabel="Add source"
           />
           <button className="btn btn-primary" type="button" disabled={!configured || pending} onClick={() => onSubmitProof(row)}>
-            Nộp bằng chứng
+            Submit proof
           </button>
         </div>
       )}
 
       {isSeller && row.status === 'PENDING_PROOF' && deadlinePassed && (
-        <p className="hint">Đã quá hạn nộp bằng chứng. Buyer có thể nhận lại toàn bộ GEN.</p>
+        <p className="hint">The proof deadline has passed. The buyer can reclaim the full GEN amount.</p>
       )}
 
       {row.status === 'SUBMITTED' && (
         <button className="btn btn-seal" type="button" disabled={!configured || pending || (!canResolve && Boolean(account) && !isBuyer && !isSeller)} onClick={() => onResolve(row)}>
           {pending ? <Loader2 size={16} className="spin" /> : <Sparkles size={16} />}
-          Yêu cầu AI xác thực
+          Request AI verification
         </button>
       )}
 
       {row.status === 'DISPUTED' && (
-        <p className="hint">Độ tin cậy dưới 60. Tiền vẫn nằm trong escrow. Seller nộp ảnh rõ hơn và nguồn độc lập, rồi yêu cầu AI chạy lại.</p>
+        <p className="hint">Confidence is below 60. The funds stay in escrow. The seller can submit clearer photos and independent sources, then request verification again.</p>
       )}
 
       {canRefund && (
         <button className="btn btn-primary" type="button" disabled={!configured || pending} onClick={() => onRefund(row)}>
-          Lấy lại tiền vì seller không nộp bằng chứng
+          Reclaim funds because the seller never submitted proof
         </button>
       )}
 
       {canRetry && (
         <button className="btn btn-primary" type="button" disabled={!configured || pending} onClick={() => onRetry(row)}>
-          <RefreshCw size={16} /> Thử lại giải ngân
+          <RefreshCw size={16} /> Retry payout
         </button>
       )}
 
-      {!account && <p className="tiny">Kết nối ví buyer hoặc seller để nộp bằng chứng, yêu cầu AI, hoàn tiền hoặc thử lại.</p>}
+      {!account && <p className="tiny">Connect the buyer or seller wallet to submit proof, request AI verification, claim a refund, or retry a payout.</p>}
     </article>
   );
 }

@@ -19,7 +19,7 @@ Free to use. You only pay GenLayer network gas when you sign a transaction. Ther
 ## Deployed Contract
 
 - **Address:** `0x93B67e70466ddB4bCF5d6ebD8BFfedC13371733a`
-- **Explorer:** [https://genlayer-explorer.vercel.app/address/0x93B67e70466ddB4bCF5d6ebD8BFfedC13371733a](https://genlayer-explorer.vercel.app/address/0x93B67e70466ddB4bCF5d6ebD8BFfedC13371733a)
+- **Explorer:** [https://explorer-studio.genlayer.com/address/0x93B67e70466ddB4bCF5d6ebD8BFfedC13371733a](https://explorer-studio.genlayer.com/address/0x93B67e70466ddB4bCF5d6ebD8BFfedC13371733a)
 
 ```env
 VITE_CONTRACT_ADDRESS=0x93B67e70466ddB4bCF5d6ebD8BFfedC13371733a

@@ -464,7 +464,7 @@ export default function App() {
           <Shield size={18} />
           <div className="banner-body">
             <span>Studionet contract: {shortAddr(contractAddress)}</span>
-            <a href={`https://genlayer-explorer.vercel.app/address/${contractAddress}`} target="_blank" rel="noreferrer">
+            <a href={`https://explorer-studio.genlayer.com/address/${contractAddress}`} target="_blank" rel="noreferrer">
               Open explorer <ExternalLink size={14} />
             </a>
           </div>

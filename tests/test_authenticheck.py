@@ -147,13 +147,35 @@ def _resolve(contract, vm, caller, tx_id, verdict, confidence, reason, web=None)
         contract.resolve_transaction(tx_id)
 
 
-def _force_transfer_fail(monkeypatch):
+def _force_transfer_fail(monkeypatch, contract):
+    import sys
     import gltest.direct.loader
 
     def failing_emit_transfer(self, value=None, **kwargs):
         raise Exception("Simulated native transfer execution failure")
 
     monkeypatch.setattr(gltest.direct.loader._EOAProxy, "emit_transfer", failing_emit_transfer)
+
+    patched = False
+    seen = set()
+    modules = []
+    inst = getattr(contract, "_instance", None)
+    if inst is not None:
+        modules.append(sys.modules.get(getattr(inst, "__module__", "")))
+    for mod in list(sys.modules.values()):
+        modules.append(mod)
+    for mod in modules:
+        if mod is None or id(mod) in seen:
+            continue
+        seen.add(id(mod))
+        if hasattr(mod, "_pay_wallet") and hasattr(mod, "_Wallet"):
+            def failing_pay(recipient, amount):
+                raise Exception("Simulated native transfer execution failure")
+
+            monkeypatch.setattr(mod, "_pay_wallet", failing_pay)
+            patched = True
+    if not patched:
+        raise RuntimeError("could not patch wallet payout")
 
 
 def test_happy_path_authentic_pays_seller(direct_vm, direct_deploy, direct_alice, direct_bob):
@@ -376,7 +398,7 @@ def test_transfer_fail_authentic_then_retry_pays_seller(
     vm = _get_vm(direct_vm)
     tx_id = _create(contract, vm, direct_alice, direct_bob, 1200)
     _submit(contract, vm, direct_bob, tx_id)
-    _force_transfer_fail(monkeypatch)
+    _force_transfer_fail(monkeypatch, contract)
     _resolve(contract, vm, direct_alice, tx_id, "AUTHENTIC", 91, "Hologram matches StockX")
     row = _get_tx(contract, tx_id)
     assert row["status"] == "PAYOUT_FAILED"
@@ -399,7 +421,7 @@ def test_transfer_fail_fake_then_retry_refunds_buyer(
     tx_id = _create(contract, vm, direct_alice, direct_bob, 640, category="Watch",
                     description="Omega Speedmaster")
     _submit(contract, vm, direct_bob, tx_id)
-    _force_transfer_fail(monkeypatch)
+    _force_transfer_fail(monkeypatch, contract)
     _resolve(contract, vm, direct_alice, tx_id, "FAKE", 93, "Serial is not in the brand registry")
     row = _get_tx(contract, tx_id)
     assert row["status"] == "PAYOUT_FAILED"
@@ -420,7 +442,7 @@ def test_transfer_fail_expired_refund_then_retry_pays_buyer(
     contract = direct_deploy(CONTRACT_PATH)
     vm = _get_vm(direct_vm)
     tx_id = _create(contract, vm, direct_alice, direct_bob, 80, deadline=PAST_DEADLINE)
-    _force_transfer_fail(monkeypatch)
+    _force_transfer_fail(monkeypatch, contract)
     with _as(vm, direct_alice):
         contract.claim_expired_refund(tx_id)
     row = _get_tx(contract, tx_id)

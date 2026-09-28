@@ -20,6 +20,19 @@ MAX_URLS = 6
 ZERO_ADDR = Address("0x0000000000000000000000000000000000000000")
 
 
+# A wallet is not a contract. gl.get_contract_at(wallet).emit_transfer is an
+# internal call: Studio finalizes it as OUT "(construct...)" with
+# "Contract <wallet> not found" and does not credit the wallet.
+# An EVM interface emit_transfer is a send to that wallet.
+@gl.evm.contract_interface
+class _Wallet:
+    class View:
+        pass
+
+    class Write:
+        pass
+
+
 def _addr_str(a) -> str:
     if isinstance(a, (bytes, bytearray)):
         return ("0x" + bytes(a).hex()).lower()
@@ -55,6 +68,25 @@ def _to_address(val) -> Address:
 
 def _same_addr(a, b) -> bool:
     return _addr_str(a) == _addr_str(b)
+
+
+def _pay_wallet(recipient, amount) -> None:
+    """Send the full escrow to a wallet. Try the EVM send first."""
+    dest = _to_address(recipient)
+    value = u256(amount)
+    first_err = None
+    try:
+        _Wallet(dest).emit_transfer(value=value)
+        return
+    except Exception as err:
+        first_err = err
+    try:
+        gl.get_contract_at(dest).emit_transfer(value=value)
+        return
+    except Exception as err:
+        if first_err is not None:
+            raise first_err
+        raise err
 
 
 def _is_zero(a) -> bool:
@@ -451,7 +483,7 @@ class Contract(gl.Contract):
         t.verdict_reason = "Seller did not submit proof before proof_deadline"
         self.transactions[tx_id] = t
         try:
-            gl.get_contract_at(buyer).emit_transfer(value=u256(amount))
+            _pay_wallet(buyer, amount)
             t.settled = True
             t.status = "EXPIRED_REFUNDED"
         except Exception as err:
@@ -546,7 +578,7 @@ class Contract(gl.Contract):
         t.settled = False
         self.transactions[tx_id] = t
         try:
-            gl.get_contract_at(recipient).emit_transfer(value=u256(amount))
+            _pay_wallet(recipient, amount)
             t.settled = True
             t.status = new_status
         except Exception as err:
@@ -579,7 +611,7 @@ class Contract(gl.Contract):
 
         amount = t.amount
         try:
-            gl.get_contract_at(recipient).emit_transfer(value=u256(amount))
+            _pay_wallet(recipient, amount)
             t.settled = True
             t.status = new_status
         except Exception as err:

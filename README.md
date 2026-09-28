@@ -18,11 +18,11 @@ Free to use. You only pay GenLayer network gas when you sign a transaction. Ther
 
 ## Deployed Contract
 
-- **Address:** `0x93B67e70466ddB4bCF5d6ebD8BFfedC13371733a`
-- **Explorer:** [https://explorer-studio.genlayer.com/address/0x93B67e70466ddB4bCF5d6ebD8BFfedC13371733a](https://explorer-studio.genlayer.com/address/0x93B67e70466ddB4bCF5d6ebD8BFfedC13371733a)
+- **Address:** `0x5a1F5050fa5E31fDc0B246aA108E209bc685f410`
+- **Explorer:** [https://explorer-studio.genlayer.com/address/0x5a1F5050fa5E31fDc0B246aA108E209bc685f410](https://explorer-studio.genlayer.com/address/0x5a1F5050fa5E31fDc0B246aA108E209bc685f410)
 
 ```env
-VITE_CONTRACT_ADDRESS=0x93B67e70466ddB4bCF5d6ebD8BFfedC13371733a
+VITE_CONTRACT_ADDRESS=0x5a1F5050fa5E31fDc0B246aA108E209bc685f410
 ```
 
 If the address is missing, the frontend still runs: a warning banner is shown, the form works, write buttons stay locked, and the page does not go blank.
@@ -54,7 +54,7 @@ Studio header:
 | Task | Correct API | Do not use |
 |---|---|---|
 | Caller | `gl.message.sender_address` | `gl.message.sender` |
-| Send GEN | `gl.get_contract_at(addr).emit_transfer(value=u256(amount))` | `gl.transfer(...)` |
+| Send GEN to a wallet | `_Wallet(addr).emit_transfer(value=u256(amount))` via `@gl.evm.contract_interface` | `gl.get_contract_at(wallet)` (Studio reports `Contract not found` and does not credit the wallet) or `gl.transfer(...)` |
 | Receive GEN with the call | `@gl.public.write.payable` + `gl.message.value` | plain `@gl.public.write` (Studionet leaves value at 0) |
 | Time | `_current_unix_timestamp()` wrapping `gl.message.datetime` | `gl.block.timestamp` |
 | Consensus | `gl.vm.run_nondet`, exact `==` on the verdict and on `PAY_SELLER` / `REFUND_BUYER` / `DISPUTE` | a percentage tolerance on the escrow |
@@ -141,7 +141,7 @@ node scripts/check-no-float-money.js
 3. Deploy and confirm **`Result: SUCCESS`**.
 4. Set `VITE_CONTRACT_ADDRESS` in `frontend/.env` and in the Vercel production environment.
 
-Current deployment: `0x93B67e70466ddB4bCF5d6ebD8BFfedC13371733a`.
+Current deployment: `0x5a1F5050fa5E31fDc0B246aA108E209bc685f410`.
 
 ---
 

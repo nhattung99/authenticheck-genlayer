@@ -255,7 +255,7 @@ def test_low_confidence_disputed_then_resubmit_then_resolve(
     assert row["confidence"] == 91
 
 
-def test_web_fetch_failure_reverts(direct_vm, direct_deploy, direct_alice, direct_bob):
+def test_unreadable_page_disputes_then_resubmit(direct_vm, direct_deploy, direct_alice, direct_bob):
     contract = direct_deploy(CONTRACT_PATH)
     vm = _get_vm(direct_vm)
     tx_id = _create(contract, vm, direct_alice, direct_bob, 400)
@@ -265,10 +265,18 @@ def test_web_fetch_failure_reverts(direct_vm, direct_deploy, direct_alice, direc
     if hasattr(vm, "mock_llm"):
         vm.mock_llm(".*", _verdict_json("AUTHENTIC", 90, "should not run"))
     with _as(vm, direct_alice):
-        with pytest.raises(Exception):
-            contract.resolve_transaction(tx_id)
-    assert _get_tx(contract, tx_id)["status"] == "SUBMITTED"
-    assert _get_tx(contract, tx_id)["settled"] is False
+        contract.resolve_transaction(tx_id)
+    row = _get_tx(contract, tx_id)
+    assert row["status"] == "DISPUTED"
+    assert row["settled"] is False
+    assert row["verdict"] == ""
+    assert "Could not read a page" in row["verdict_reason"]
+
+    _submit(contract, vm, direct_bob, tx_id)
+    _resolve(contract, vm, direct_alice, tx_id, "AUTHENTIC", 90, "Readable pages confirm the serial")
+    row = _get_tx(contract, tx_id)
+    assert row["status"] == "RESOLVED_AUTHENTIC"
+    assert row["settled"] is True
 
 
 def test_broken_json_goes_disputed(direct_vm, direct_deploy, direct_alice, direct_bob):
@@ -344,10 +352,14 @@ def test_double_submit_and_double_resolve_blocked(direct_vm, direct_deploy, dire
     tx_id = _create(contract, vm, direct_alice, direct_bob, 900)
     _submit(contract, vm, direct_bob, tx_id)
     with _as(vm, direct_bob):
-        with pytest.raises(Exception):
-            contract.submit_proof(tx_id, [PROOF_URL], [REF_STOCKX, REF_GOAT])
+        contract.submit_proof(tx_id, [PROOF_URL_2], [REF_STOCKX, REF_GOAT])
+    replaced = _get_tx(contract, tx_id)
+    assert replaced["status"] == "SUBMITTED"
+    assert PROOF_URL_2 in replaced["proof_urls"]
 
-    _resolve(contract, vm, direct_alice, tx_id, "AUTHENTIC", 95, "Both lookups match")
+    web = dict(_standard_web())
+    web[PROOF_URL_2] = "Replacement macro of the serial plaque."
+    _resolve(contract, vm, direct_alice, tx_id, "AUTHENTIC", 95, "Both lookups match", web)
     assert _get_tx(contract, tx_id)["status"] == "RESOLVED_AUTHENTIC"
     with _as(vm, direct_alice):
         with pytest.raises(Exception):

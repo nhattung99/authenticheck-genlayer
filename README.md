@@ -18,11 +18,11 @@ Free to use. You only pay GenLayer network gas when you sign a transaction. Ther
 
 ## Deployed Contract
 
-- **Address:** `0xfA53082D872592e951E477E9046633Cc4a95c69D`
-- **Explorer:** [https://genlayer-explorer.vercel.app/address/0xfA53082D872592e951E477E9046633Cc4a95c69D](https://genlayer-explorer.vercel.app/address/0xfA53082D872592e951E477E9046633Cc4a95c69D)
+- **Address:** `0x93B67e70466ddB4bCF5d6ebD8BFfedC13371733a`
+- **Explorer:** [https://genlayer-explorer.vercel.app/address/0x93B67e70466ddB4bCF5d6ebD8BFfedC13371733a](https://genlayer-explorer.vercel.app/address/0x93B67e70466ddB4bCF5d6ebD8BFfedC13371733a)
 
 ```env
-VITE_CONTRACT_ADDRESS=0xfA53082D872592e951E477E9046633Cc4a95c69D
+VITE_CONTRACT_ADDRESS=0x93B67e70466ddB4bCF5d6ebD8BFfedC13371733a
 ```
 
 If the address is missing, the frontend still runs: a warning banner is shown, the form works, write buttons stay locked, and the page does not go blank.
@@ -74,7 +74,7 @@ EXPIRED_REFUNDED                       ├─ FAKE + transfer OK ──► RESOL
                                        └─ transfer failed ──► PAYOUT_FAILED ──retry_resolution──► correct recipient
 ```
 
-A failed web fetch reverts the transaction and leaves the status at `SUBMITTED`.
+If a page is empty, blocked, or shows a login wall, resolve does not revert. The status becomes `DISPUTED`, nobody is paid, and the seller can replace the links. The seller can also replace links while the status is still `SUBMITTED`.
 
 ---
 
@@ -120,7 +120,7 @@ Required cases:
 3. Seller never submits before the deadline, so the buyer is refunded
 4. Late proof is rejected
 5. Confidence below 60 becomes `DISPUTED`, then a resubmit, then a second resolve
-6. Web fetch failure reverts and keeps `SUBMITTED`; broken JSON becomes `DISPUTED` and pays nobody
+6. An unreadable page (empty, blocked, or login wall) becomes `DISPUTED` and pays nobody; the seller can replace the links and resolve again. Broken JSON also becomes `DISPUTED`.
 7. Missing proof or references, same host, empty description, buyer equals seller, amount 0
 8. Double submit and double resolve are rejected
 9. `emit_transfer` throws on AUTHENTIC, FAKE, and the expired refund, then `retry_resolution` pays the correct party
@@ -141,7 +141,7 @@ node scripts/check-no-float-money.js
 3. Deploy and confirm **`Result: SUCCESS`**.
 4. Set `VITE_CONTRACT_ADDRESS` in `frontend/.env` and in the Vercel production environment.
 
-Current deployment: `0xfA53082D872592e951E477E9046633Cc4a95c69D`.
+Current deployment: `0x93B67e70466ddB4bCF5d6ebD8BFfedC13371733a`.
 
 ---
 

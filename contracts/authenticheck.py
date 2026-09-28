@@ -149,16 +149,46 @@ def _bound_page_text(text) -> str:
     return s
 
 
+def _page_unreadable(body: str) -> bool:
+    low = str(body or "").lower()
+    if len(low.strip()) == 0:
+        return True
+    if "please login" in low or "please log in" in low or "sign in to continue" in low:
+        return True
+    if "webpage_load_failed" in low:
+        return True
+    return False
+
+
 def _fetch_url(url: str, kind: str) -> str:
+    """A blocked or empty page must not revert the transaction. Return a marker instead."""
     try:
         res = gl.nondet.web.render(url)
         raw = res.body if hasattr(res, "body") else res
         body = _bound_page_text(raw).strip()
     except Exception as err:
-        raise UserError("Failed to fetch " + kind + " URL: " + str(url) + " (" + str(err) + ")")
-    if len(body) == 0:
-        raise UserError("Failed to fetch " + kind + " URL: " + str(url))
+        return "FETCH_FAILED [" + kind + " " + str(url) + "]: " + str(err)
+    if _page_unreadable(body):
+        return "FETCH_FAILED [" + kind + " " + str(url) + "]: page was empty or required login"
     return "[" + url + "]: " + body
+
+
+def _unreadable_pages(contents) -> list:
+    failed = []
+    for item in contents:
+        text = str(item)
+        if text.startswith("FETCH_FAILED"):
+            failed.append(text)
+    return failed
+
+
+def _dispute_unreadable(failed) -> dict:
+    return {
+        "verdict": "",
+        "confidence": 0,
+        "reason": "Could not read a page, so nobody was paid. Replace it with a public text page. " + " | ".join(failed),
+        "consequence": DISPUTE,
+    }
 
 
 def _leader_payload(leader_res):
@@ -212,6 +242,16 @@ def _parse_verdict(raw) -> dict:
         }
 
     verdict = str(data.get("verdict", "")).strip().upper()
+    if verdict == "":
+        reason = str(data.get("reason", "")).strip()
+        if len(reason) == 0:
+            reason = "No binary verdict was returned"
+        return {
+            "verdict": "",
+            "confidence": 0,
+            "reason": reason,
+            "consequence": DISPUTE,
+        }
     if verdict not in VALID_VERDICTS:
         return {
             "verdict": "",
@@ -372,7 +412,7 @@ class Contract(gl.Contract):
         t = self.transactions[tx_id]
         if not _same_addr(gl.message.sender_address, t.seller):
             raise UserError("Only seller can submit proof")
-        if t.status not in ("PENDING_PROOF", "DISPUTED"):
+        if t.status not in ("PENDING_PROOF", "SUBMITTED", "DISPUTED"):
             raise UserError("Cannot submit proof in status: " + str(t.status))
         # The deadline gates the first submission. A DISPUTED case must still
         # accept a more detailed resubmission after the original deadline.
@@ -446,6 +486,10 @@ class Contract(gl.Contract):
             for url in reference_urls_list:
                 reference_contents.append(_fetch_url(url, "reference"))
 
+            failed_pages = _unreadable_pages(proof_contents + reference_contents)
+            if len(failed_pages) > 0:
+                return _dispute_unreadable(failed_pages)
+
             prompt = "You are a neutral authenticity adjudicator for secondhand luxury and collectible goods.\n"
             prompt += "Item category: \"" + item_category + "\"\n"
             prompt += "Item description: \"" + item_description + "\"\n"
@@ -455,7 +499,8 @@ class Contract(gl.Contract):
             prompt += "Prioritize these if they contradict the seller proof: " + str(reference_contents) + "\n\n"
             prompt += "Decide strictly one of two outcomes based on objective evidence:\n"
             prompt += "- \"AUTHENTIC\": independent sources confirm this is a genuine item matching the description.\n"
-            prompt += "- \"FAKE\": independent sources contradict authenticity, flag it as counterfeit, or evidence is insufficient to confirm genuineness.\n\n"
+            prompt += "- \"FAKE\": independent sources contradict authenticity, flag it as counterfeit, or evidence is insufficient to confirm genuineness.\n"
+            prompt += "If any page text starts with FETCH_FAILED, return {\"verdict\": \"\", \"confidence\": 0, \"reason\": \"page unreadable\"}.\n\n"
             prompt += "Return ONLY raw JSON, no markdown:\n"
             prompt += "{\"verdict\": \"AUTHENTIC\" | \"FAKE\", \"confidence\": <0-100>, \"reason\": \"<short justification>\"}"
 

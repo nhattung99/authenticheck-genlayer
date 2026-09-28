@@ -302,7 +302,7 @@ export default function App() {
       await new Promise((r) => setTimeout(r, 2000));
     }
     if (!accepted) {
-      throw new Error('The transaction was mined, but GenLayer did not ACCEPT the expected state change. Open Studio and check the result.');
+      throw new Error('GenLayer did not accept a payout. If a page showed a login wall, submit public text links again. Otherwise open Studio and check the result.');
     }
     setToast({ kind: 'ok', text: `${title} succeeded (ACCEPTED).` });
     return hash;
@@ -680,7 +680,11 @@ function TxDetail({
   const meta = STATUS_META[row.status] || { label: row.status, tone: 'muted' };
   const isBuyer = account && sameAddress(account, row.buyer);
   const isSeller = account && sameAddress(account, row.seller);
-  const canSubmit = isSeller && (row.status === 'PENDING_PROOF' || row.status === 'DISPUTED') && !(row.status === 'PENDING_PROOF' && deadlinePassed);
+  const canSubmit = isSeller && (
+    row.status === 'DISPUTED'
+    || row.status === 'SUBMITTED'
+    || (row.status === 'PENDING_PROOF' && !deadlinePassed)
+  );
   const canResolve = row.status === 'SUBMITTED' && (isBuyer || isSeller || !account);
   const canRefund = isBuyer && row.status === 'PENDING_PROOF' && deadlinePassed;
   const canRetry = (isBuyer || isSeller) && row.status === 'PAYOUT_FAILED';
@@ -732,7 +736,11 @@ function TxDetail({
 
       {canSubmit && (
         <div className="stack">
-          <p className="hint">Suggested sources for {categoryLabel(row.item_category)}: {sources.join(' · ')}. Submit at least 2 links on different domains.</p>
+          <p className="hint">
+            {row.status === 'DISPUTED'
+              ? 'The last read did not pay anyone. Paste public text pages GenLayer can open (not a login wall), on two different domains.'
+              : `Suggested sources for ${categoryLabel(row.item_category)}: ${sources.join(' · ')}. Submit at least 2 links on different domains.`}
+          </p>
           <UrlList
             label="Close-up photo or video links"
             urls={proofUrls}
